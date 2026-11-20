@@ -590,6 +590,71 @@ class TestInvalid(util.TestCase):
         with self.assertRaises(TypeError):
             sv.filter('div', "not a tag", flags=flags)
 
+    def test_excessive_selectors(self):
+        """Test excessive selectors."""
+
+        # Build a selector string: "a,a,a,...,a"
+        count = 10000
+        selector = ",".join("a" for _ in range(count))
+
+        # Compile the selector
+        with self.assertRaises(ValueError):
+            sv.compile(selector)
+
+    def test_excessive_group_selectors(self):
+        """Test excessive selectors in `:is()` and `:where()`."""
+
+        count = 10000
+        selector = ':is({})'.format("," * count)
+
+        # Compile the selector
+        with self.assertRaises(ValueError):
+            sv.compile(selector)
+
+        selector = ':where({})'.format("," * count)
+
+        # Compile the selector
+        with self.assertRaises(ValueError):
+            sv.compile(selector)
+
+    def test_excessive_custom_selectors(self):
+        """Test excessive custom selectors."""
+
+        # Build a selector string: "a,a,a,...,a"
+        count = 10000
+        selector = ",".join("a" for _ in range(count))
+
+        # Compile the selector
+        with self.assertRaises(ValueError):
+            sv.compile('div:--custom', custom={':--custom': selector})
+
+    def test_excessive_custom_and_normal_selectors(self):
+        """Test excessive custom and normal selectors."""
+
+        count = 5000
+        selector = ",".join("a" for _ in range(count))
+
+        # Compile the selector
+        with self.assertRaises(ValueError):
+            sv.compile(':is({}):--custom'.format(selector), custom={':--custom': selector})
+
+    def test_excessive_reused_selectors(self):
+        """Test that reused custom and built-in pseudo-class selectors count toward the limit."""
+
+        count = 5000
+        selector = ",".join("a" for _ in range(count))
+
+        # The custom selector alone is within the limit
+        sv.compile('div:--custom', custom={':--custom': selector})
+
+        # Referencing it multiple times is not
+        with self.assertRaises(ValueError):
+            sv.compile('div:--custom:--custom', custom={':--custom': selector})
+
+        # Built-in pseudo-classes are backed by precompiled selector lists that also count
+        with self.assertRaises(ValueError):
+            sv.compile(':read-write' * 1000)
+
 
 class TestSyntaxErrorReporting(util.TestCase):
     """Test reporting of syntax errors."""
